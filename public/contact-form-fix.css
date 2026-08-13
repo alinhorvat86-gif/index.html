@@ -1,0 +1,16 @@
+/* Scut de protecție pentru layout-ul formularului de contact */
+.contact-section-container {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap !important; /* Permite elementelor să coboare pe ecrane mai mici în loc să fie tăiate */
+    box-sizing: border-box !important;
+    padding-right: 40px !important; /* Creează o zonă de siguranță în partea dreaptă */
+}
+
+/* Forțăm formularul de contact să rămână în interiorul ecranului */
+.contact-form-wrapper {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: visible !important; /* Se asigură că textul și câmpurile nu sunt tăiate */
+}
