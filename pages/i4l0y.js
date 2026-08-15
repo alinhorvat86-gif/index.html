@@ -29,9 +29,11 @@ $w.onReady(async function () {
     $w('#submitServiceBtn').onClick(async () => {
         const email = $w('#emailInput').value;
         if (!EMAIL_PATTERN.test(email)) {
+            $w('#emailInput').style.borderColor = "#e02020";
             $w('#notificationText').text = "Te rugăm să introduci o adresă de email validă.";
             return;
         }
+        $w('#emailInput').style.borderColor = "";
 
         $w('#submitServiceBtn').disable(); // Previne click-ul dublu
 

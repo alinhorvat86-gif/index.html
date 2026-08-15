@@ -1,24 +1,67 @@
 import wixData from 'wix-data';
+import { sanitizeUserInput } from 'public/sanitizeUserInput.js';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UK_REG_NUMBER_PATTERN = /^(?:\d{8}|[A-Za-z]{2}\d{6})$/;
+const CACHE_TTL_MS = 300000; // 5 minute
+
+/**
+ * Cache în memorie, per instanță de backend. Notă importantă: modulele .jsw
+ * rulează pe instanțe Node gestionate de Wix, care pot fi reciclate sau
+ * multiplicate oricând — acest Map NU garantează 5 minute de valabilitate
+ * și nu e partajat între toate instanțele, e doar un best-effort speed-up.
+ * Pentru un cache garantat, partajat între instanțe, e nevoie de o colecție
+ * dedicată de tip "cache" în wix-data sau de un serviciu extern.
+ */
+const dataCache = new Map();
+
+/**
+ * Încarcă datele cu viteză maximă folosind un cache în memorie cu expirare.
+ * @param {string} collectionName - Numele colecției din Wix Data.
+ * @returns {Promise<Array>} Listă de elemente.
+ */
+export async function getFastData(collectionName) {
+    const cached = dataCache.get(collectionName);
+    if (cached && Date.now() < cached.expiresAt) {
+        console.log(`[Cache Hit] ${collectionName}`);
+        return cached.items;
+    }
+
+    try {
+        const results = await wixData.query(collectionName).limit(50).find();
+        const items = results.items;
+        dataCache.set(collectionName, { items, expiresAt: Date.now() + CACHE_TTL_MS });
+        return items;
+    } catch (error) {
+        console.error("Eroare la optimizarea bazei de date:", error);
+        // Fallback: în caz de eroare, returnăm o listă goală ca să nu se blocheze site-ul
+        return [];
+    }
+}
 
 /**
  * Înlocuitor Live pentru Online Services (Fără restricții Wix)
- * @param {Object} bookingDetails - Datele trimise de client
+ * @param {Object} bookingDetails - { clientEmail, requestedService }
  */
 export async function registerLiveService(bookingDetails) {
-    // Validare de securitate la nivel de server
     if (!bookingDetails.clientEmail || !bookingDetails.requestedService) {
         throw new Error('[Core Error] Datele introduse sunt incomplete.');
     }
 
+    const clientEmail = sanitizeUserInput(bookingDetails.clientEmail.toString().trim());
+    if (!EMAIL_PATTERN.test(clientEmail)) {
+        throw new Error('[Core Error] Adresa de email nu este validă.');
+    }
+    const requestedService = sanitizeUserInput(bookingDetails.requestedService.toString().trim());
+
     try {
         const payload = {
-            email: bookingDetails.clientEmail,
-            service: bookingDetails.requestedService,
+            email: clientEmail,
+            service: requestedService,
             timestamp: new Date(),
             status: 'ACTIVE_LIVE'
         };
 
-        // Salvare directă în colecția ta securizată
         const confirmedBooking = await wixData.insert('CustomLiveBookings', payload);
         return { success: true, id: confirmedBooking._id };
     } catch (err) {
@@ -26,8 +69,6 @@ export async function registerLiveService(bookingDetails) {
         throw new Error(`Sistemul live a respins cererea: ${err.message}`);
     }
 }
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Verifică formatul unui număr de înregistrare din UK și adaugă compania în baza de date custom.
@@ -41,20 +82,20 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export async function checkUKCompanyFormatAndAdd(companyInfo) {
     const regNumber = companyInfo.regNumber ? companyInfo.regNumber.toString().trim() : '';
-    const contactEmail = companyInfo.contactEmail ? companyInfo.contactEmail.toString().trim() : '';
+    const contactEmail = companyInfo.contactEmail ? sanitizeUserInput(companyInfo.contactEmail.toString().trim()) : '';
+    const name = companyInfo.name ? sanitizeUserInput(companyInfo.name.toString().trim()) : '';
 
-    const isValidFormat = /^(?:\d{8}|[A-Za-z]{2}\d{6})$/.test(regNumber);
-    if (!isValidFormat) {
+    if (!UK_REG_NUMBER_PATTERN.test(regNumber)) {
         return { formatValid: false, message: "Numărul de înregistrare nu respectă formatul UK (8 cifre, sau 2 litere + 6 cifre)." };
     }
 
-    if (!companyInfo.name || !EMAIL_PATTERN.test(contactEmail)) {
+    if (!name || !EMAIL_PATTERN.test(contactEmail)) {
         return { formatValid: false, message: "Numele companiei și un email de contact valid sunt obligatorii." };
     }
 
     try {
         const companyRecord = {
-            title: companyInfo.name,
+            title: name,
             ukRegistrationId: regNumber,
             contactEmail,
             checkedDate: new Date(),
