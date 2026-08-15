@@ -24,11 +24,19 @@ $w.onReady(async function () {
     }
 
     // 3. CONECTARE AUTOMATĂ LA MOTORUL LIVE DE REZERVĂRI
+    const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     $w('#submitServiceBtn').onClick(async () => {
+        const email = $w('#emailInput').value;
+        if (!EMAIL_PATTERN.test(email)) {
+            $w('#notificationText').text = "Te rugăm să introduci o adresă de email validă.";
+            return;
+        }
+
         $w('#submitServiceBtn').disable(); // Previne click-ul dublu
 
         const clientRequest = {
-            clientEmail: $w('#emailInput').value,
+            clientEmail: email,
             requestedService: "CCTV_MONITORING_LONDON"
         };
 
@@ -38,7 +46,7 @@ $w.onReady(async function () {
                 $w('#notificationText').text = "Rezervare înregistrată live pe server.";
             }
         } catch (err) {
-            $w('#notificationText').text = "Conexiune redirecționată către serverul secundar.";
+            $w('#notificationText').text = "A apărut o eroare la trimiterea cererii. Încearcă din nou.";
         } finally {
             $w('#submitServiceBtn').enable();
         }

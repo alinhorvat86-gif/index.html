@@ -27,25 +27,36 @@ export async function registerLiveService(bookingDetails) {
     }
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
  * Verifică formatul unui număr de înregistrare din UK și adaugă compania în baza de date custom.
  * Notă: acesta este doar un control de FORMAT (8 cifre, sau 2 litere + 6 cifre, conform
  * convenției Companies House). Nu interoghează Companies House și nu constituie o
  * verificare juridică reală a companiei.
- * @param {Object} companyInfo - Datele brute ale companiei introduse
+ *
+ * Schema colecției UK_Corporate_Database (doar date de contact + status legal,
+ * fără date financiare): title, ukRegistrationId, contactEmail, status, checkedDate.
+ * @param {Object} companyInfo - { name, regNumber, contactEmail }
  */
 export async function checkUKCompanyFormatAndAdd(companyInfo) {
     const regNumber = companyInfo.regNumber ? companyInfo.regNumber.toString().trim() : '';
-    const isValidFormat = /^(?:\d{8}|[A-Za-z]{2}\d{6})$/.test(regNumber);
+    const contactEmail = companyInfo.contactEmail ? companyInfo.contactEmail.toString().trim() : '';
 
+    const isValidFormat = /^(?:\d{8}|[A-Za-z]{2}\d{6})$/.test(regNumber);
     if (!isValidFormat) {
         return { formatValid: false, message: "Numărul de înregistrare nu respectă formatul UK (8 cifre, sau 2 litere + 6 cifre)." };
+    }
+
+    if (!companyInfo.name || !EMAIL_PATTERN.test(contactEmail)) {
+        return { formatValid: false, message: "Numele companiei și un email de contact valid sunt obligatorii." };
     }
 
     try {
         const companyRecord = {
             title: companyInfo.name,
             ukRegistrationId: regNumber,
+            contactEmail,
             checkedDate: new Date(),
             status: "FORMAT_CHECK_PASSED"
         };
