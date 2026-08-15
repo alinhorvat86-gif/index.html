@@ -1,13 +1,18 @@
 import { authentication } from '@wix/site';
-import * as wixSiteMembers from '@wix/site-members';
 
 /**
- * GUESSED element IDs — not verified against the actual Editor component tree
- * (no API exposes that). Confirm/correct these against the real IDs for the
- * login button, avatar, and notification bell before relying on this file.
+ * '#membersLoginBar2' is the real Wix native MembersLoginBar component
+ * (confirmed against the live Editor). It's a self-contained widget: it
+ * already renders its own logged-in/logged-out UI and handles its own
+ * login/logout clicks internally, so this file does not reference it
+ * directly or attach a custom onClick to it — doing so would fight its
+ * built-in modal instead of complementing it. Everything below only reacts
+ * to the auth state that widget drives, via authentication.onLogin/onLogout.
+ *
+ * The bell IDs below are still GUESSES — not verified against the Editor's
+ * component tree, since no available API exposes that tree. Confirm/correct
+ * them before relying on this file.
  */
-const LOGIN_BUTTON_ID = '#loginButton';
-const USER_AVATAR_ID = '#userAvatar';
 const NOTIFICATION_BELL_ID = '#notificationBell';
 const NOTIFICATION_DROPDOWN_ID = '#notificationDropdown';
 const NOTIFICATION_TEXT_ID = '#notificationText';
@@ -23,40 +28,29 @@ function withElement(id, fn) {
 }
 
 $w.onReady(function () {
-    refreshAuthUI();
-
-    withElement(LOGIN_BUTTON_ID, (btn) => btn.onClick(handleAuthButtonClick));
     withElement(NOTIFICATION_BELL_ID, (bell) => bell.onClick(handleBellClick));
+
+    try {
+        authentication.onLogin(handleAuthStateChange);
+        authentication.onLogout(handleAuthStateChange);
+    } catch (err) {
+        console.error('[Auth] Could not attach login/logout listeners:', err.message);
+    }
 });
 
-function refreshAuthUI() {
+function handleAuthStateChange() {
     const loggedIn = authentication.loggedIn();
 
-    withElement(LOGIN_BUTTON_ID, (btn) => {
-        btn.label = loggedIn ? 'Log Out' : 'Log In';
-    });
-
-    withElement(USER_AVATAR_ID, (avatar) => {
-        if (loggedIn) {
-            avatar.show();
-        } else {
-            avatar.hide();
-        }
-    });
-}
-
-async function handleAuthButtonClick() {
-    try {
-        if (authentication.loggedIn()) {
-            await authentication.logout();
-        } else {
-            await wixSiteMembers.promptLogin();
-        }
-    } catch (err) {
-        // Visitor closed the login modal without signing in, or logout failed — no crash, just no state change.
-        console.error('[Auth] Login/logout did not complete:', err.message);
+    // Clear any stale "please log in" prompt once the visitor logs in.
+    if (loggedIn) {
+        withElement(NOTIFICATION_TEXT_ID, (text) => {
+            text.text = '';
+        });
+    } else {
+        // Collapse the notification dropdown on logout so no member-specific
+        // content stays visible to what is now an anonymous visitor.
+        withElement(NOTIFICATION_DROPDOWN_ID, (dropdown) => dropdown.collapse());
     }
-    refreshAuthUI();
 }
 
 function handleBellClick() {
