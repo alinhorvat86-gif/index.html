@@ -1,0 +1,58 @@
+import wixData from 'wix-data';
+
+/**
+ * Înlocuitor Live pentru Online Services (Fără restricții Wix)
+ * @param {Object} bookingDetails - Datele trimise de client
+ */
+export async function registerLiveService(bookingDetails) {
+    // Validare de securitate la nivel de server
+    if (!bookingDetails.clientEmail || !bookingDetails.requestedService) {
+        throw new Error('[Core Error] Datele introduse sunt incomplete.');
+    }
+
+    try {
+        const payload = {
+            email: bookingDetails.clientEmail,
+            service: bookingDetails.requestedService,
+            timestamp: new Date(),
+            status: 'ACTIVE_LIVE'
+        };
+
+        // Salvare directă în colecția ta securizată
+        const confirmedBooking = await wixData.insert('CustomLiveBookings', payload);
+        return { success: true, id: confirmedBooking._id };
+    } catch (err) {
+        console.error('[System Fail]', err.message);
+        throw new Error(`Sistemul live a respins cererea: ${err.message}`);
+    }
+}
+
+/**
+ * Verifică formatul unui număr de înregistrare din UK și adaugă compania în baza de date custom.
+ * Notă: acesta este doar un control de FORMAT (8 cifre, sau 2 litere + 6 cifre, conform
+ * convenției Companies House). Nu interoghează Companies House și nu constituie o
+ * verificare juridică reală a companiei.
+ * @param {Object} companyInfo - Datele brute ale companiei introduse
+ */
+export async function checkUKCompanyFormatAndAdd(companyInfo) {
+    const regNumber = companyInfo.regNumber ? companyInfo.regNumber.toString().trim() : '';
+    const isValidFormat = /^(?:\d{8}|[A-Za-z]{2}\d{6})$/.test(regNumber);
+
+    if (!isValidFormat) {
+        return { formatValid: false, message: "Numărul de înregistrare nu respectă formatul UK (8 cifre, sau 2 litere + 6 cifre)." };
+    }
+
+    try {
+        const companyRecord = {
+            title: companyInfo.name,
+            ukRegistrationId: regNumber,
+            checkedDate: new Date(),
+            status: "FORMAT_CHECK_PASSED"
+        };
+
+        const savedRecord = await wixData.insert('UK_Corporate_Database', companyRecord);
+        return { formatValid: true, record: savedRecord };
+    } catch (error) {
+        throw new Error(`Eroare la scrierea în baza de date: ${error.message}`);
+    }
+}
