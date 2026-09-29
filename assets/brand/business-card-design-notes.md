@@ -19,3 +19,10 @@ Two-sided card, rounded corners, portrait orientation.
 
 ## Reuse instructions
 When asked for future print materials (flyers, cards, follow-up orders) in the same brand identity, match this exact layout/color system and reuse the same London dusk skyline photo + navy/red band structure + QR code placement pattern.
+
+## LinkedIn graphic template (added 2026-09-29)
+- Background: best-london-photo.png (Big Ben + London Eye at dusk, cropped from 2000x1324 source to 1200x627 ratio) — highest quality London photo in the set, chosen for clarity
+- Logo: logo-clean-transparent.png (fringe-free transparent PNG, use this one — earlier crops had white matte fringe artifacts)
+- Font: 'Courier New', Courier, monospace (Fixed Width, per explicit request)
+- Layout: navy/red accent line left edge, logo+name top-left, headline+subtext mid-left with heavy text-shadow (no dark overlay box behind text — shadow alone carries contrast), 4 pill badges (SIA-LICENSED/RESIDENTIAL/OFFICES/HOTELS) bottom-left, website bottom-right
+- Dark gradient overlay: rgba(5,10,20) 0.30 at top to 0.94 at bottom, for badge/text legibility without hiding the photo
